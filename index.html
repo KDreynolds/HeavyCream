@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My HTMX App</title>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+</head>
+<body>
+    <div class="App">
+        <header class="App-header">
+            <img src="logo.svg" class="App-logo" alt="logo" />
+            <p>
+                Edit <code>main.html</code> and save to reload.
+            </p>
+            <a class="App-link" href="https://htmx.org" target="_blank" rel="noopener noreferrer">
+                Learn HTMX
+            </a>
+        </header>
+    </div>
+
+    <div hx-get="/get_example">GET example</div>
+    <button hx-post="/post_example">POST example</button>
+
+    <!-- Don't forget to include htmx library -->
+    <script src="https://unpkg.com/htmx.org@1.6.1"></script>
+</body>
+</html>
