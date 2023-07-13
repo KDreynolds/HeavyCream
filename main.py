@@ -1,5 +1,7 @@
-from bs4 import BeautifulSoup
+import os
+from pathlib import Path
 
+# Function to generate CSS
 def generate_css():
     css_content = """
     body {
@@ -19,88 +21,64 @@ def generate_css():
         cursor: pointer;
     }
     """
-    with open("styles.css", "w") as f:
-        f.write(css_content)
+    return css_content
 
-class HTMXBackendCreator:
-    def __init__(self, backend_type, html=None):
-        self.backend_type = backend_type
-        self.html = html or self.generate_html()  # Use provided HTML or generate a generic one
+# Function to generate HTML
+def generate_html():
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>My HTMX App</title>
+        <link rel="stylesheet" type="text/css" href="styles.css">
+    </head>
+    <body>
+        <div class="App">
+            <header class="App-header">
+                <img src="logo.png" class="App-logo" alt="logo" />
+                <p>
+                    Edit <code>main.html</code> and save to reload.
+                </p>
+                <a class="App-link" href="https://htmx.org" target="_blank" rel="noopener noreferrer">
+                    HeavyCream Docs
+                </a>
+                <br>
+                <br>
+                <a class="App-link" href="https://htmx.org" target="_blank" rel="noopener noreferrer">
+                    Learn HTMX
+                </a>
+            </header>
+        </div>
+        <br>
 
-        self.backend_generators = {
-            'flask': FlaskGenerator,
-            'gin': GinGenerator,
-            'php-slim': SlimPHPGenerator,
-        }
-
-        if backend_type not in self.backend_generators:
-            raise ValueError(f"Unsupported backend type: {backend_type}")
-
-        self.generator = self.backend_generators[backend_type](self.html)
-
-    def generate_backend(self):
-        return self.generator.generate()
-
-    def generate_html(self):
-        # Create a generic HTML with HTMX elements for the chosen backend type
-        html_content = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <link rel="stylesheet" type="text/css" href="styles.css">
-        </head>
-        <body>
-
-        <button hx-get="/get_example">GET example</button>
+        <button hx-get="/get_example">GET example</button><br>
+        <br>
         <button hx-post="/post_example">POST example</button>
 
-        </body>
-        </html>
-        """
-        return html_content
+        <!-- Don't forget to include htmx library -->
+        <script src="https://unpkg.com/htmx.org@1.6.1"></script>
+    </body>
+    </html>
+    """
+    return html_content
 
-
-
-
-class BackendGenerator:
-    def __init__(self, html):
-        self.soup = BeautifulSoup(html, 'html.parser')
-
-    def find_htmx_elements(self):
-        return self.soup.find_all(lambda tag: any(tag.get(attr) for attr in ['hx-get', 'hx-post', 'hx-put', 'hx-delete']))
-
-class FlaskGenerator(BackendGenerator):
-    def generate(self):
-        flask_app_code = """
+# Function to generate backend code
+def generate_backend(backend_type):
+    if backend_type == "flask":
+        backend_code = """
 from flask import Flask, request, render_template
 app = Flask(__name__)
 
-"""
+@app.route('/get_example', methods=['GET'])
+def get_example():
+    return "GET request received"
 
-        for tag in self.find_htmx_elements():
-            url = tag.get('hx-get') or tag.get('hx-post') or tag.get('hx-put') or tag.get('hx-delete')
-            method = 'GET' if tag.get('hx-get') else 'POST' if tag.get('hx-post') else 'PUT' if tag.get('hx-put') else 'DELETE'
+@app.route('/post_example', methods=['POST'])
+def post_example():
+    return "POST request received"
 
-            flask_app_code += f"""
-@app.route('{url}', methods=['{method}'])
-def handle_request():
-    if request.method == 'POST':
-        # Handle POST request here
-        return "POST request received"
-    elif request.method == 'GET':
-        # Handle GET request here
-        return "GET request received"
-    elif request.method == 'PUT':
-        # Handle PUT request here
-        return "PUT request received"
-    elif request.method == 'DELETE':
-        # Handle DELETE request here
-        return "DELETE request received"
-    else:
-        return "Unknown request method"
-"""
-
-        flask_app_code += """
 @app.route('/static/<path:filename>')
 def staticfiles(filename):
     return app.send_static_file(filename)
@@ -108,12 +86,8 @@ def staticfiles(filename):
 if __name__ == '__main__':
     app.run(debug=True)
 """
-
-        return flask_app_code
-
-class GinGenerator(BackendGenerator):
-    def generate(self):
-        gin_app_code = """
+    elif backend_type == "gin":
+        backend_code = """
 package main
 
 import (
@@ -123,71 +97,66 @@ import (
 func main() {
 	r := gin.Default()
 
-"""
+	r.GET("/get_example", func(c *gin.Context) {
+		c.String(200, "GET request received")
+	})
+	
+	r.POST("/post_example", func(c *gin.Context) {
+		c.String(200, "POST request received")
+	})
 
-        for tag in self.find_htmx_elements():
-            url = tag.get('hx-get') or tag.get('hx-post') or tag.get('hx-put') or tag.get('hx-delete')
-            method = 'GET' if tag.get('hx-get') else 'POST' if tag.get('hx-post') else 'PUT' if tag.get('hx-put') else 'DELETE'
-            
-            handler = f'''
-	c.String(200, "{method} request received")
-'''
-
-            gin_app_code += f"""
-	r.{method}("{url}", func(c *gin.Context) {{{handler}}})
-"""
-
-        gin_app_code += """
 	r.Run() // listen and serve on 0.0.0.0:8080
 }
 """
-
-        return gin_app_code
-
-class SlimPHPGenerator(BackendGenerator):
-    def generate(self):
-        php_code = """
+    elif backend_type == "slim":
+        backend_code = """
 <?php
-require 'vendor/autoload.php';
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+use Slim\Factory\AppFactory;
 
-$app = new \Slim\App;
+require __DIR__ . '/../vendor/autoload.php';
 
-"""
+$app = AppFactory::create();
 
-        for tag in self.find_htmx_elements():
-            url = tag.get('hx-get') or tag.get('hx-post') or tag.get('hx-put') or tag.get('hx-delete')
-            method = 'GET' if tag.get('hx-get') else 'POST' if tag.get('hx-post') else 'PUT' if tag.get('hx-put') else 'DELETE'
+$app->get('/get_example', function (Request $request, Response $response, $args) {
+    $response->getBody()->write("GET request received");
+    return $response;
+});
 
-            handler = f'''
-    return $response->withStatus(200)->write('{method} request received');
-'''
+$app->post('/post_example', function (Request $request, Response $response, $args) {
+    $response->getBody()->write("POST request received");
+    return $response;
+});
 
-            php_code += f"""
-$app->{method.lower()}('{url}', function ($request, $response, $args) {{{handler}}});
-"""
-
-        php_code += """
 $app->run();
-?>
-
 """
+    else:
+        raise ValueError(f"Unsupported backend type: {backend_type}")
 
-        return php_code
+    return backend_code
 
-generate_css()  # Call this function to create the CSS file
+# Main script
+def main():
+    backend_type = input("Enter the backend you want to use (flask/gin/slim): ")
 
-# Generate Flask backend from custom HTML
-creator = HTMXBackendCreator('flask', html)
-print(creator.generate_backend())
+    # Generate the content
+    html_content = generate_html()
+    css_content = generate_css()
+    backend_code = generate_backend(backend_type)
 
-# Generate Flask backend from a generic HTML
-creator = HTMXBackendCreator('flask')
-print(creator.generate_backend())
+    # Write the content to files
+    Path("index.html").write_text(html_content)
+    Path("styles.css").write_text(css_content)
 
-# Generate Gin backend from custom HTML
-creator = HTMXBackendCreator('gin', html)
-print(creator.generate_backend())
+    if backend_type == "flask":
+        Path("app.py").write_text(backend_code)
+    elif backend_type == "gin":
+        Path("app.go").write_text(backend_code)
+    elif backend_type == "slim":
+        Path("index.php").write_text(backend_code)
 
-# Generate SlimPHP backend from custom HTML
-creator = HTMXBackendCreator('php-slim', html)
-print(creator.generate_backend())
+    print(f"Boilerplate for {backend_type} backend has been created.")
+
+if __name__ == "__main__":
+    main()
